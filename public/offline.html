@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
     <title>You're Offline - React PWA</title>
     <style>
         body {
@@ -15,9 +15,23 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            min-height: -webkit-fill-available;
             background-color: #f8f9fa;
             color: #343a40;
             text-align: center;
+            
+            /* iOS specific styles */
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            overscroll-behavior: none;
+            
+            /* Safe area support for notched devices */
+            padding-top: max(20px, env(safe-area-inset-top));
+            padding-left: max(20px, env(safe-area-inset-left));
+            padding-right: max(20px, env(safe-area-inset-right));
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
         }
         .icon {
             font-size: 64px;
@@ -58,14 +72,22 @@
             font-size: 1rem;
             cursor: pointer;
             transition: background-color 0.2s;
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: manipulation;
         }
-        button:hover {
+        button:hover, button:active {
             background-color: #0056b3;
         }
         .footer {
             margin-top: 40px;
             font-size: 0.9rem;
             color: #6c757d;
+        }
+        
+        /* iOS haptic feedback simulation */
+        button:active {
+            transform: scale(0.98);
         }
     </style>
 </head>
@@ -89,5 +111,29 @@
     <div class="footer">
         <p>Network status will update automatically when connection is restored.</p>
     </div>
+    
+    <script>
+        // iOS specific enhancements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Prevent iOS bounce effect
+            document.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+            }, { passive: false });
+            
+            // Check online status
+            function updateOnlineStatus() {
+                if (navigator.onLine) {
+                    document.body.style.backgroundColor = '#d4edda';
+                    document.querySelector('h1').textContent = 'Back Online!';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                }
+            }
+            
+            window.addEventListener('online', updateOnlineStatus);
+            updateOnlineStatus();
+        });
+    </script>
 </body>
 </html>

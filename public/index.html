@@ -3,19 +3,46 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
       content="A Progressive Web App built with React"
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!-- PWA Meta Tags -->
+    
+    <!-- iOS specific meta tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="React PWA">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Icons for iOS -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="%PUBLIC_URL%/apple-touch-icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon-180x180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="%PUBLIC_URL%/apple-touch-icon-167x167.png" />
+    
+    <!-- iOS Splash Screens -->
+    <link rel="apple-touch-startup-image" 
+          href="%PUBLIC_URL%/logo512.png" 
+          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" 
+          href="%PUBLIC_URL%/logo512.png" 
+          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" 
+          href="%PUBLIC_URL%/logo512.png" 
+          media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" 
+          href="%PUBLIC_URL%/logo512.png" 
+          media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" 
+          href="%PUBLIC_URL%/logo512.png" 
+          media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    
+    <!-- Windows specific meta tags -->
     <meta name="msapplication-TileImage" content="%PUBLIC_URL%/logo192.png">
     <meta name="msapplication-TileColor" content="#000000">
+    <meta name="msapplication-config" content="none" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
@@ -46,17 +73,93 @@
       To create a production bundle, use `npm run build` or `yarn build`.
     -->
     <script>
-      // Register service worker
+      // Enhanced service worker registration for iOS compatibility
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-              console.log('SW registered: ', registration);
-            })
-            .catch((registrationError) => {
-              console.log('SW registration failed: ', registrationError);
+          navigator.serviceWorker.register('/sw.js', {
+            scope: '/'
+          })
+          .then((registration) => {
+            console.log('SW registered: ', registration);
+            
+            // Check for updates periodically (important for iOS)
+            setInterval(() => {
+              registration.update();
+            }, 60000); // Check every minute
+            
+            // Handle iOS-specific installation prompt
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New content available, refresh the page
+                  if (confirm('New version available! Refresh to update?')) {
+                    window.location.reload();
+                  }
+                }
+              });
             });
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+          });
         });
+        
+        // Handle iOS standalone mode
+        if (window.navigator.standalone) {
+          document.body.classList.add('standalone');
+        }
+        
+        // Prevent iOS bounce effect
+        document.addEventListener('touchmove', function(e) {
+          if (e.target.closest('.scrollable')) {
+            return;
+          }
+          e.preventDefault();
+        }, { passive: false });
+      }
+      
+      // Add to home screen detection for iOS
+      let deferredPrompt;
+      let isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      let isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      
+      if (isIOSDevice && !isStandalone) {
+        // Show custom iOS installation instructions
+        setTimeout(() => {
+          if (!window.localStorage.getItem('ios-install-dismissed')) {
+            showIOSInstallPrompt();
+          }
+        }, 3000);
+      }
+      
+      function showIOSInstallPrompt() {
+        const installPrompt = document.createElement('div');
+        installPrompt.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          left: 20px;
+          right: 20px;
+          background: #007AFF;
+          color: white;
+          padding: 15px;
+          border-radius: 10px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+          z-index: 10000;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          text-align: center;
+        `;
+        installPrompt.innerHTML = `
+          <div>Add to Home Screen</div>
+          <div style="font-size: 14px; margin-top: 5px;">
+            Tap <svg width="16" height="16" viewBox="0 0 24 24" fill="white" style="vertical-align: middle;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> then "Add to Home Screen"
+          </div>
+          <button onclick="this.parentElement.remove(); localStorage.setItem('ios-install-dismissed', 'true');" 
+                  style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 5px; margin-top: 10px; cursor: pointer;">
+            Dismiss
+          </button>
+        `;
+        document.body.appendChild(installPrompt);
       }
     </script>
   </body>

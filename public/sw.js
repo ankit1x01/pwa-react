@@ -4,22 +4,41 @@ const urlsToCache = [
   '/static/js/bundle.js',
   '/static/css/main.css',
   '/manifest.json',
+  '/logo192.png',
+  '/logo512.png',
   '/offline.html'
 ];
 
 // Install event
 self.addEventListener('install', (event) => {
+  console.log('Service Worker installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Add URLs to cache with error handling for iOS
+        return Promise.all(
+          urlsToCache.map(url => {
+            return cache.add(url).catch(err => {
+              console.log('Failed to cache:', url, err);
+              return Promise.resolve(); // Continue with other URLs
+            });
+          })
+        );
       })
   );
+  // Force the waiting service worker to become the active service worker
+  self.skipWaiting();
 });
 
-// Fetch event
+// Fetch event with iOS-specific handling
 self.addEventListener('fetch', (event) => {
+  // Skip cross-origin requests and chrome-extension requests
+  if (!event.request.url.startsWith(self.location.origin) || 
+      event.request.url.includes('chrome-extension')) {
+    return;
+  }
+
   if (event.request.destination === 'document') {
     // Handle navigation requests
     event.respondWith(
@@ -28,7 +47,17 @@ self.addEventListener('fetch', (event) => {
           if (response) {
             return response;
           }
-          return fetch(event.request);
+          return fetch(event.request)
+            .then((fetchResponse) => {
+              // Cache successful responses
+              if (fetchResponse.status === 200) {
+                const responseClone = fetchResponse.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                  cache.put(event.request, responseClone);
+                });
+              }
+              return fetchResponse;
+            });
         })
         .catch(() => {
           // If both cache and network fail, show offline page
@@ -36,11 +65,28 @@ self.addEventListener('fetch', (event) => {
         })
     );
   } else {
-    // Handle other requests
+    // Handle other requests (CSS, JS, images)
     event.respondWith(
       caches.match(event.request)
         .then((response) => {
-          return response || fetch(event.request);
+          if (response) {
+            return response;
+          }
+          return fetch(event.request)
+            .then((fetchResponse) => {
+              // Cache successful responses
+              if (fetchResponse.status === 200) {
+                const responseClone = fetchResponse.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                  cache.put(event.request, responseClone);
+                });
+              }
+              return fetchResponse;
+            });
+        })
+        .catch(() => {
+          console.log('Fetch failed for:', event.request.url);
+          return new Response('Network error', { status: 408 });
         })
     );
   }
